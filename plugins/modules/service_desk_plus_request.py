@@ -16,7 +16,13 @@ short_description: ensure state of a Sevice Desk Plus request ticket
 # i.e. the version is of the form "2.5.0" and not "2.4".
 version_added: "1.0.0"
 
-description: this creates a Sevice Desk Plus request ticket via the Manage Engine API, so run_once should always be set to true
+description:
+    - this creates a Sevice Desk Plus request ticket via the Manage Engine API, so run_once should always be set to true
+
+author:
+    - David Villafaña IV
+
+requirements: []
 
 options:
     api_key:
@@ -56,15 +62,6 @@ options:
         choices:
             - present
             - absent
-
-
-# Specify this value according to your collection
-# in format of namespace.collection.doc_fragment_name
-extends_documentation_fragment:
-    - capcu.manage_engine.my_doc_fragment_name
-
-author:
-    - David Villafaña IV
 """
 
 EXAMPLES = r"""
