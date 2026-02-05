@@ -1,8 +1,9 @@
 #!/usr/bin/python
 
-# Copyright: (c) 2024, David Villafaña <david.villafana@capcu.org>
+# Copyright: (c) 2026, David Villafaña <david.villafana@capcu.org>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 from __future__ import absolute_import, division, print_function
+from io import TextIOWrapper, BufferedReader
 
 __metaclass__ = type
 
@@ -109,7 +110,39 @@ api_response:
 import json
 import requests
 from ansible.module_utils.basic import AnsibleModule
-from typing import Callable, Optional
+from typing import Callable, TypedDict, Literal
+from dataclasses import dataclass
+import mimetypes
+
+JSONValue = None | bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"]
+
+
+@dataclass()
+class TMSRequester(TypedDict):
+    id: int
+    name: str
+
+@dataclass()
+class TMSResolution():
+    content: str
+
+@dataclass()
+class TMSStatus():
+    name: str
+
+@dataclass()
+class TMSRequest(TypedDict):
+    id: int
+    subject: str
+    description: str
+    short_description: str
+    request_type: str
+    attachments: list[tuple[Literal['input_file'], tuple[str, BufferedReader], str]]
+    requester: TMSRequester
+    status: TMSStatus
+    resolution: TMSResolution
+
+
 
 
 def get_resource_ids_for_patching(
@@ -135,7 +168,7 @@ def get_resource_ids_for_patching(
 
 def get_user_by_username(
     fail_json: Callable, api_key: str, url: str, port: int, username: str
-) -> dict:
+) -> dict[str, JSONValue] | None:
     """
     retrieve user from TMS API by AD username
 
@@ -302,7 +335,7 @@ def get_api_objects(url: str, port: int, api_key: str, object_name: str) -> list
     }
     response = requests.get(url, headers=headers, params=params)
     if response.status_code in [200, 201]:
-        objects = json.loads(response.text)[object_name]
+        objects: JSONValue = json.loads(response.text)[object_name]
         return objects
     else:
         raise Exception(
@@ -316,7 +349,7 @@ def find_request(
     requests: list[dict],
     hosts: list[str],
     patch_types: list[str],
-) -> Optional[dict]:
+) -> dict[str, JSONValue] | None:
     try:
         request: bool = next(
             (
@@ -349,6 +382,17 @@ def run_module():
         hosts=dict(type="list", required=True),
         patch_types=dict(type="list", required=False),
         state=dict(type="str", choices=["present", "absent"], required=True),
+        attachments=dict(
+            type="list",
+            required=False,
+            elements="dict",
+            options=dict(
+                filename=dict(type="str", required=True),
+                filepath=dict(type="str", required=True),
+            ),
+        ),
+        requester_username=dict(type="str", required=True),
+        status=dict(type="str", required=False),
     )
 
     # seed the result dict in the object
@@ -384,6 +428,7 @@ def run_module():
     # part where your module will do what it needs to do)
     try:
         requests: list[dict] = get_api_objects(url, port, api_key, "requests")
+        print(json.dumps(requests, indent=4))
         request: Optional[dict] = find_request(
             fail_json=module.fail_json,
             request_name=name,

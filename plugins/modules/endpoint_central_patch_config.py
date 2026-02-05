@@ -272,7 +272,9 @@ def run_module():
         manage_engine_url=dict(type="str", required=True),
         manage_engine_port=dict(type="int", required=True),
         name=dict(type="str", required=False, default="Ansible patch configuration"),
-        desc=dict(type="str", required=False, default="Install select patches to devices"),
+        desc=dict(
+            type="str", required=False, default="Install select patches to devices"
+        ),
         deployment_policy_name=dict(type="str", required=True),
         hosts=dict(type="list", required=True),
         patch_types=dict(type="list", required=True),
