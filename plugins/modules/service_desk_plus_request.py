@@ -11,14 +11,14 @@ DOCUMENTATION = r"""
 ---
 module: service_desk_plus_request
 
-short_description: ensure state of a Sevice Desk Plus request ticket
+short_description: ensure state of a Service Desk Plus request ticket
 
 # If this is part of a collection, you need to use semantic versioning,
 # i.e. the version is of the form "2.5.0" and not "2.4".
 version_added: "1.0.0"
 
 description:
-    - this creates a Sevice Desk Plus request ticket via the Manage Engine API, so run_once should always be set to true
+    - this creates a Service Desk Plus request ticket via the Manage Engine API, so run_once should always be set to true
 
 author:
     - David Villafaña IV
@@ -56,6 +56,28 @@ options:
         description: the types of patches you want applied to the hosts
         required: false
         type: list
+    attachments:
+        description: list of attachments to add to the request
+        required: false
+        type: list
+        elements: dict
+        suboptions:
+            file_name:
+                description: display name of the attachment
+                required: true
+                type: str
+            file_path:
+                description: local filesystem path to the attachment
+                required: true
+                type: str
+    requester_username:
+        description: the username of the request creator
+        required: true
+        type: str
+    status:
+        description: the request status
+        required: false
+        type: str
     state:
         description: whether patch configuration should be present
         required: true
@@ -71,7 +93,7 @@ EXAMPLES = r"""
     api_key: 7A69CA52-EASD-4162-A263-CC4DCC35736B
     service_desk_plus_url: tms.capcu.org
     service_desk_plus_port: 8080
-    name: Sevice Desk Plus request ticket
+    name: Service Desk Plus request ticket
     deployment_policy_name: Update Servers
     hosts:
       - CCUTMSTEST
@@ -81,6 +103,10 @@ EXAMPLES = r"""
       - Cumulative Update for Windows Server
       - Servicing Stack Update for Windows Server
       - Cumulative Update for SQL Server
+    attachments:
+      - file_name: runbook.txt
+        file_path: /tmp/runbook.txt
+    requester_username: jdoe
     state: present
   register: testout
   run_once: true
@@ -326,7 +352,7 @@ def create_tms_request(
         raise Exception(f"Error: {response.status_code}, {response.text}")
 
 
-def get_api_objects(url: str, port: int, api_key: str, object_name: str) -> list[dict]:
+def get_api_objects(url: str, port: int, api_key: str, object_name: str) -> list[dict[str, JSONValue]]:
     """
     get_api_objects makes a simple unfiltered call to the ManageEngine API
     v3 for the object name specified and returns the first 1000 objects.
@@ -348,7 +374,7 @@ def get_api_objects(url: str, port: int, api_key: str, object_name: str) -> list
     }
     response = requests.get(url, headers=headers, params=params)
     if response.status_code in [200, 201]:
-        objects: JSONValue = json.loads(response.text)[object_name]
+        objects: list[dict[str, JSONValue]] = json.loads(response.text)[object_name]
         return objects
     else:
         raise Exception(
@@ -482,8 +508,8 @@ def run_module():
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
     try:
-        requests: list[dict] = get_api_objects(base_url, port, api_key, "requests")
-        request: Optional[dict] = find_request(
+        requests: list[dict[str, JSONValue]] = get_api_objects(base_url, port, api_key, "requests")
+        request: dict[str, JSONValue] | None = find_request(
             fail_json=module.fail_json,
             request_name=name,
             requests=requests,
