@@ -388,25 +388,40 @@ def add_and_associate_attachments(
     request_id: str,
     attachments: list[dict[str, str]],
     fail_json: Callable,
-    url: str,
+    base_url: str,
     port: int,
     api_key: str) -> JSONValue:
 
     tms_attachments: list[Attachment] = [TMSAttachment(file_path=x["file_path"], file_name=x["file_name"]).to_tuple() for x in attachments]
 
     headers = {"authtoken": api_key}
+    url: str = f"{base_url}:{port}/api/v3/requests/{request_id}/upload"
     response = requests.put(
-        url=f"{url}:{port}/api/v3/requests/{request_id}/upload",
+        url=url,
         headers=headers,
-        data=tms_attachments,
+        files=tms_attachments,
         verify=True,
     )
     if response.status_code in [200, 201]:
-        ret = json.loads(response.text)["request"]
+        ret = json.loads(response.text).get("attachment", None)
         return ret
     else:
-        raise Exception(f"Error: {response.status_code}, {response.text}")
+        raise Exception(f"Error: {response.status_code}, {response.text}, {url}")
 
+
+def check_api_resp(module: AnsibleModule, result: dict[str, JSONValue], response) -> dict[str, JSONValue]:
+    result["msg"].append(response)
+    if response.get("status", "") == "error":
+        result["changed"] = False
+        if response["error_code"] == "3010":
+            result["failed"] = False
+        else:
+            result["failed"] = True
+            module.fail_json(**result)
+    else:
+        result["changed"] = True
+        result["failed"] = False
+    return result
 
 
 def run_module():
@@ -438,7 +453,7 @@ def run_module():
     # changed is if this module effectively modified the target
     # state will include any data that you want your module to pass back
     # for consumption, for example, in a subsequent task
-    result = dict(changed=False, msg="", failed=False)
+    result = dict(changed=False, msg=[], failed=False)
 
     # the AnsibleModule object will be our abstraction working with Ansible
     # this includes instantiation, a couple of common attr would be the
@@ -447,8 +462,8 @@ def run_module():
     module = AnsibleModule(argument_spec=module_args, supports_check_mode=False)
 
     api_key: str = module.params["api_key"]
-    url: str = module.params["service_desk_plus_url"]
-    url = url if "http" in url else f"https://{url}"
+    base_url: str = module.params["service_desk_plus_url"]
+    base_url = base_url if "http" in base_url else f"https://{base_url}"
     port: int = module.params["service_desk_plus_port"]
     name: str = module.params["name"]
     deployment_policy_name: str = module.params["deployment_policy_name"]
@@ -467,7 +482,7 @@ def run_module():
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
     try:
-        requests: list[dict] = get_api_objects(url, port, api_key, "requests")
+        requests: list[dict] = get_api_objects(base_url, port, api_key, "requests")
         request: Optional[dict] = find_request(
             fail_json=module.fail_json,
             request_name=name,
@@ -478,12 +493,12 @@ def run_module():
         if state == "present":
             if request:
                 result["changed"] = False
-                result["msg"] = "request already exists"
+                result["msg"].append("request already exists")
                 result["failed"] = False
             else:
                 request_resp: dict[str, JSONValue] = create_tms_request(
                     fail_json=module.fail_json,
-                    url=url,
+                    url=base_url,
                     port=port,
                     api_key=api_key,
                     request_name=name,
@@ -492,41 +507,31 @@ def run_module():
                     patch_types=patch_types,
                     requester_username=requester_username,
                 )
+                result = check_api_resp(module, result, request_resp)
                 if attachments and request_resp.get("id", None) and isinstance(request_resp["id"], str):
                     attachments_resp: JSONValue = add_and_associate_attachments(
                         request_id=request_resp["id"],
                         fail_json=module.fail_json,
-                        url=url,
+                        base_url=base_url,
                         port=port,
                         api_key=api_key,
                         attachments=attachments
                     )
-
-                result["msg"] = request_resp
-                if request_resp["status"] == "error":
-                    result["changed"] = False
-                    if request_resp["error_code"] == "3010":
-                        result["failed"] = False
-                    else:
-                        result["failed"] = True
-                        module.fail_json(**result)
-                else:
-                    result["changed"] = True
-                    result["failed"] = False
+                    result = check_api_resp(module, result, attachments_resp)
         elif state == "absent":
             if not request:
                 result["changed"] = False
-                result["msg"] = "request does not exist"
+                result["msg"].append("request does not exist")
                 result["failed"] = False
             else:
                 delete_resp: dict = delete_tms_ticket(
                     fail_json=module.fail_json,
-                    url=url,
+                    url=base_url,
                     port=port,
                     api_key=api_key,
                     request_id=request["id"],
                 )
-                result["msg"] = delete_resp
+                result["msg"].append(delete_resp)
                 if delete_resp["response_status"]["status"] == "success":
                     result["changed"] = True
                     result["failed"] = False
