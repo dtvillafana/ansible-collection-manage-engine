@@ -110,39 +110,52 @@ api_response:
 import json
 import requests
 from ansible.module_utils.basic import AnsibleModule
-from typing import Callable, TypedDict, Literal
-from dataclasses import dataclass
+from typing import Callable, TypedDict, Literal, Optional
+from dataclasses import dataclass, asdict, field
 import mimetypes
 
 JSONValue = None | bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"]
 
 
-@dataclass()
-class TMSRequester(TypedDict):
+Attachment = tuple[Literal['input_file'], tuple[str, BufferedReader | None], str]
+
+@dataclass
+class TMSRequester():
     id: int
     name: str
 
-@dataclass()
+@dataclass
 class TMSResolution():
     content: str
 
-@dataclass()
+@dataclass
 class TMSStatus():
     name: str
 
-@dataclass()
-class TMSRequest(TypedDict):
-    id: int
-    subject: str
-    description: str
-    short_description: str
-    request_type: str
-    attachments: list[tuple[Literal['input_file'], tuple[str, BufferedReader], str]]
-    requester: TMSRequester
-    status: TMSStatus
-    resolution: TMSResolution
+@dataclass
+class TMSAttachment():
+    file_name: str
+    file_path: str
+    file_type: tuple[str | None, str | None]
+    # attachments: list[Attachment] = field(default_factory=lambda: [("input_file", ("", None), "")])
+
+    def __init__(self, file_name: str, file_path: str):
+        self.file_name = file_name
+        self.file_path = file_path
+        self.file_type = mimetypes.guess_file_type(self.file_path)
+    
+    def to_tuple(self):
+        return ('input_file', (self.file_name, open(self.file_path, 'rb'), self.file_type))
 
 
+@dataclass
+class TMSRequest():
+    id: int | None = None
+    subject: str = ""
+    description: str = ""
+    requester: TMSRequester | None = None
+    status: TMSStatus | None = None
+    resolution: TMSResolution | None = None
 
 
 def get_resource_ids_for_patching(
@@ -219,7 +232,7 @@ def get_user_by_username(
             verify=True,
         )
         if response.status_code in [200, 201]:
-            response_obj = json.loads(response.text)
+            response_obj: JSONValue = json.loads(response.text)
             users = response_obj["users"]
             user = users[0]
             return user
@@ -264,7 +277,8 @@ def create_tms_request(
     policy_name: str,
     hosts: str,
     patch_types: str,
-) -> dict:
+    requester_username: str,
+) -> dict[str, JSONValue]:
     """
     Create TMS ticket by TMS API for an automation job
 
@@ -278,32 +292,31 @@ def create_tms_request(
     Returns:
         the request object returned by the API
     """
-    endpoint = "requests"
     headers = {"authtoken": api_key}
-    data = {
-        "request": {
-            "subject": request_name,
-            "description": f"[AUTO-GENERATED] Ansible has initiated {patch_types} updates for the following servers : {hosts} {f'in accordance with the {{ {policy_name} }} policy' if policy_name else ''}",
-            "requester": {
-                "id": int(
-                    get_user_by_username(
-                        fail_json=fail_json,
-                        api_key=api_key,
-                        url=url,
-                        port=port,
-                        username="sv-automation",
-                    )["id"]
-                ),
-                "name": "automation",
-            },
-            "resolution": {"content": "The update has completed successfully"},
-            "status": {"name": "Open"},
-        }
-    }
+
+    requester_resp = get_user_by_username(
+                    fail_json=fail_json,
+                    api_key=api_key,
+                    url=url,
+                    port=port,
+                    username=requester_username,
+                )
+    if requester_resp:
+        requester_id_val = requester_resp.get("id", None)
+        if requester_id_val:
+            requester_id = int(requester_id_val)
+    requester = TMSRequester(id=requester_id, name=requester_username)
+    data = TMSRequest(
+        subject=request_name,
+        description=f"[AUTO-GENERATED] Ansible has initiated {patch_types} updates for the following servers : {hosts} {f'in accordance with the {{ {policy_name} }} policy' if policy_name else ''}",
+        resolution=TMSResolution(content="The update has completed successfully"),
+        status=TMSStatus(name="Open"),
+        requester=requester
+    )
     response = requests.post(
-        url=f"{url}:{port}/api/v3/{endpoint}",
+        url=f"{url}:{port}/api/v3/requests",
         headers=headers,
-        data={"input_data": json.dumps(data)},
+        data={"input_data": json.dumps({'request': asdict(data)})},
         verify=True,
     )
     if response.status_code in [200, 201]:
@@ -371,6 +384,31 @@ def find_request(
         )
 
 
+def add_and_associate_attachments(
+    request_id: str,
+    attachments: list[dict[str, str]],
+    fail_json: Callable,
+    url: str,
+    port: int,
+    api_key: str) -> JSONValue:
+
+    tms_attachments: list[Attachment] = [TMSAttachment(file_path=x["file_path"], file_name=x["file_name"]).to_tuple() for x in attachments]
+
+    headers = {"authtoken": api_key}
+    response = requests.put(
+        url=f"{url}:{port}/api/v3/requests/{request_id}/upload",
+        headers=headers,
+        data=tms_attachments,
+        verify=True,
+    )
+    if response.status_code in [200, 201]:
+        ret = json.loads(response.text)["request"]
+        return ret
+    else:
+        raise Exception(f"Error: {response.status_code}, {response.text}")
+
+
+
 def run_module():
     # define available arguments/parameters a user can pass to the module
     module_args = dict(
@@ -387,8 +425,8 @@ def run_module():
             required=False,
             elements="dict",
             options=dict(
-                filename=dict(type="str", required=True),
-                filepath=dict(type="str", required=True),
+                file_name=dict(type="str", required=True),
+                file_path=dict(type="str", required=True),
             ),
         ),
         requester_username=dict(type="str", required=True),
@@ -417,6 +455,8 @@ def run_module():
     hosts: list[str] = module.params["hosts"]
     patch_types: list[str] = module.params["patch_types"]
     state: str = module.params["state"]
+    attachments: list[dict[str, str]] = module.params["attachments"]
+    requester_username: str = module.params["requester_username"]
 
     # if the user is working with this module in only check mode we do not
     # want to make any changes to the environment, just return the current
@@ -428,7 +468,6 @@ def run_module():
     # part where your module will do what it needs to do)
     try:
         requests: list[dict] = get_api_objects(url, port, api_key, "requests")
-        print(json.dumps(requests, indent=4))
         request: Optional[dict] = find_request(
             fail_json=module.fail_json,
             request_name=name,
@@ -442,7 +481,7 @@ def run_module():
                 result["msg"] = "request already exists"
                 result["failed"] = False
             else:
-                resp: dict = create_tms_request(
+                request_resp: dict[str, JSONValue] = create_tms_request(
                     fail_json=module.fail_json,
                     url=url,
                     port=port,
@@ -451,11 +490,22 @@ def run_module():
                     policy_name=deployment_policy_name,
                     hosts=hosts,
                     patch_types=patch_types,
+                    requester_username=requester_username,
                 )
-                result["msg"] = resp
-                if resp["status"] == "error":
+                if attachments and request_resp.get("id", None) and isinstance(request_resp["id"], str):
+                    attachments_resp: JSONValue = add_and_associate_attachments(
+                        request_id=request_resp["id"],
+                        fail_json=module.fail_json,
+                        url=url,
+                        port=port,
+                        api_key=api_key,
+                        attachments=attachments
+                    )
+
+                result["msg"] = request_resp
+                if request_resp["status"] == "error":
                     result["changed"] = False
-                    if resp["error_code"] == "3010":
+                    if request_resp["error_code"] == "3010":
                         result["failed"] = False
                     else:
                         result["failed"] = True
@@ -469,15 +519,15 @@ def run_module():
                 result["msg"] = "request does not exist"
                 result["failed"] = False
             else:
-                resp: dict = delete_tms_ticket(
+                delete_resp: dict = delete_tms_ticket(
                     fail_json=module.fail_json,
                     url=url,
                     port=port,
                     api_key=api_key,
                     request_id=request["id"],
                 )
-                result["msg"] = resp
-                if resp["response_status"]["status"] == "success":
+                result["msg"] = delete_resp
+                if delete_resp["response_status"]["status"] == "success":
                     result["changed"] = True
                     result["failed"] = False
                 else:
