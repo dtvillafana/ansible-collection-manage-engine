@@ -143,23 +143,27 @@ import mimetypes
 JSONValue = None | bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"]
 
 
-Attachment = tuple[Literal['input_file'], tuple[str, BufferedReader | None], str]
+Attachment = tuple[Literal["input_file"], tuple[str, BufferedReader | None], str]
+
 
 @dataclass
-class TMSRequester():
+class TMSRequester:
     id: int
     name: str
 
+
 @dataclass
-class TMSResolution():
+class TMSResolution:
     content: str
 
-@dataclass
-class TMSStatus():
-    name: str
 
 @dataclass
-class TMSAttachment():
+class TMSStatus:
+    name: str
+
+
+@dataclass
+class TMSAttachment:
     file_name: str
     file_path: str
     file_type: tuple[str | None, str | None]
@@ -169,13 +173,16 @@ class TMSAttachment():
         self.file_name = file_name
         self.file_path = file_path
         self.file_type = mimetypes.guess_file_type(self.file_path)
-    
+
     def to_tuple(self):
-        return ('input_file', (self.file_name, open(self.file_path, 'rb'), self.file_type))
+        return (
+            "input_file",
+            (self.file_name, open(self.file_path, "rb"), self.file_type),
+        )
 
 
 @dataclass
-class TMSRequest():
+class TMSRequest:
     id: int | None = None
     subject: str = ""
     description: str = ""
@@ -321,12 +328,12 @@ def create_tms_request(
     headers = {"authtoken": api_key}
 
     requester_resp = get_user_by_username(
-                    fail_json=fail_json,
-                    api_key=api_key,
-                    url=url,
-                    port=port,
-                    username=requester_username,
-                )
+        fail_json=fail_json,
+        api_key=api_key,
+        url=url,
+        port=port,
+        username=requester_username,
+    )
     if requester_resp:
         requester_id_val = requester_resp.get("id", None)
         if requester_id_val:
@@ -337,12 +344,12 @@ def create_tms_request(
         description=f"[AUTO-GENERATED] Ansible has initiated {patch_types} updates for the following servers : {hosts} {f'in accordance with the {{ {policy_name} }} policy' if policy_name else ''}",
         resolution=TMSResolution(content="The update has completed successfully"),
         status=TMSStatus(name="Open"),
-        requester=requester
+        requester=requester,
     )
     response = requests.post(
         url=f"{url}:{port}/api/v3/requests",
         headers=headers,
-        data={"input_data": json.dumps({'request': asdict(data)})},
+        data={"input_data": json.dumps({"request": asdict(data)})},
         verify=True,
     )
     if response.status_code in [200, 201]:
@@ -352,7 +359,9 @@ def create_tms_request(
         raise Exception(f"Error: {response.status_code}, {response.text}")
 
 
-def get_api_objects(url: str, port: int, api_key: str, object_name: str) -> list[dict[str, JSONValue]]:
+def get_api_objects(
+    url: str, port: int, api_key: str, object_name: str
+) -> list[dict[str, JSONValue]]:
     """
     get_api_objects makes a simple unfiltered call to the ManageEngine API
     v3 for the object name specified and returns the first 1000 objects.
@@ -416,9 +425,13 @@ def add_and_associate_attachments(
     fail_json: Callable,
     base_url: str,
     port: int,
-    api_key: str) -> JSONValue:
+    api_key: str,
+) -> JSONValue:
 
-    tms_attachments: list[Attachment] = [TMSAttachment(file_path=x["file_path"], file_name=x["file_name"]).to_tuple() for x in attachments]
+    tms_attachments: list[Attachment] = [
+        TMSAttachment(file_path=x["file_path"], file_name=x["file_name"]).to_tuple()
+        for x in attachments
+    ]
 
     headers = {"authtoken": api_key}
     url: str = f"{base_url}:{port}/api/v3/requests/{request_id}/upload"
@@ -435,7 +448,9 @@ def add_and_associate_attachments(
         raise Exception(f"Error: {response.status_code}, {response.text}, {url}")
 
 
-def check_api_resp(module: AnsibleModule, result: dict[str, JSONValue], response) -> dict[str, JSONValue]:
+def check_api_resp(
+    module: AnsibleModule, result: dict[str, JSONValue], response
+) -> dict[str, JSONValue]:
     result["msg"].append(response)
     if response.get("status", "") == "error":
         result["changed"] = False
@@ -508,7 +523,9 @@ def run_module():
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
     try:
-        requests: list[dict[str, JSONValue]] = get_api_objects(base_url, port, api_key, "requests")
+        requests: list[dict[str, JSONValue]] = get_api_objects(
+            base_url, port, api_key, "requests"
+        )
         request: dict[str, JSONValue] | None = find_request(
             fail_json=module.fail_json,
             request_name=name,
@@ -534,14 +551,18 @@ def run_module():
                     requester_username=requester_username,
                 )
                 result = check_api_resp(module, result, request_resp)
-                if attachments and request_resp.get("id", None) and isinstance(request_resp["id"], str):
+                if (
+                    attachments
+                    and request_resp.get("id", None)
+                    and isinstance(request_resp["id"], str)
+                ):
                     attachments_resp: JSONValue = add_and_associate_attachments(
                         request_id=request_resp["id"],
                         fail_json=module.fail_json,
                         base_url=base_url,
                         port=port,
                         api_key=api_key,
-                        attachments=attachments
+                        attachments=attachments,
                     )
                     result = check_api_resp(module, result, attachments_resp)
         elif state == "absent":
