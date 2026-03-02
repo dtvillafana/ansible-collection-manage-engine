@@ -274,6 +274,7 @@ def create_tms_request(
     request_name: str,
     description: str,
     requester_username: str,
+    status: str
 ) -> Dict[str, JSONValue]:
     """
     Create TMS ticket by TMS API for an automation job
@@ -306,7 +307,7 @@ def create_tms_request(
         subject=request_name,
         description=description,
         resolution=TMSResolution(content="The update has completed successfully"),
-        status=TMSStatus(name="Open"),
+        status=TMSStatus(name=status),
         requester=requester,
     )
     response = requests.post(
@@ -433,7 +434,7 @@ def run_module():
         service_desk_plus_url=dict(type="str", required=True),
         service_desk_plus_port=dict(type="int", required=True),
         name=dict(type="str", required=False, default="Request created by Ansible"),
-        description=dict(type="str", required=False),
+        description=dict(type="str", required=False, default="Default Description"),
         state=dict(type="str", choices=["present", "absent"], required=True),
         attachments=dict(
             type="list",
@@ -445,7 +446,7 @@ def run_module():
             ),
         ),
         requester_username=dict(type="str", required=True),
-        status=dict(type="str", required=False),
+        status=dict(type="str", required=False, default="Open"),
     )
 
     # seed the result dict in the object
@@ -468,6 +469,7 @@ def run_module():
     name: str = module.params["name"]
     description: str = module.params["description"]
     state: str = module.params["state"]
+    status: str = module.params["status"]
     attachments: List[Dict[str, str]] = module.params["attachments"]
     requester_username: str = module.params["requester_username"]
 
@@ -503,6 +505,7 @@ def run_module():
                     request_name=name,
                     description=description,
                     requester_username=requester_username,
+                    status=status
                 )
                 result = check_api_resp(module, result, request_resp)
                 if (
