@@ -44,18 +44,10 @@ options:
         required: false
         type: str
         default: Request created by Ansible
-    deployment_policy_name:
-        description: the policy name of the deployment policy
+    description:
+        description: the description section of the request ticket
         required: false
         type: str
-    hosts:
-        description: the list of machine resource names, usually domain names
-        required: true
-        type: list
-    patch_types:
-        description: the types of patches you want applied to the hosts
-        required: false
-        type: list
     attachments:
         description: list of attachments to add to the request
         required: false
@@ -94,15 +86,7 @@ EXAMPLES = r"""
     service_desk_plus_url: tms.capcu.org
     service_desk_plus_port: 8080
     name: Service Desk Plus request ticket
-    deployment_policy_name: Update Servers
-    hosts:
-      - CCUTMSTEST
-      - CCUWEBTEST
-      - CCUAPPS2
-    patch_types:
-      - Cumulative Update for Windows Server
-      - Servicing Stack Update for Windows Server
-      - Cumulative Update for SQL Server
+    description: Update Servers - CCUTMSTEST CCUWEBTEST CCUAPPS2 - Cumulative Update for Windows Server - Servicing Stack Update for Windows Server - Cumulative Update for SQL Server
     attachments:
       - file_name: runbook.txt
         file_path: /tmp/runbook.txt
@@ -191,27 +175,6 @@ class TMSRequest:
     requester: Optional[TMSRequester] = None
     status: Optional[TMSStatus] = None
     resolution: Optional[TMSResolution] = None
-
-
-def get_resource_ids_for_patching(
-    url: str, port: int, api_key: str, hosts: List[str]
-) -> List[int]:
-    """
-    get_resource_ids_for_patching gets the list of resource ids of hosts to update
-
-    Args:
-        url: the url of the Manage Engine instance
-        port: the port of the Manage Engine instance
-        api_key: the auth token for the API
-        endpoint: the endpoint to be posted with the data
-        hosts: the list of host names
-    Returns:
-        a list of resource ids
-    """
-    all_systems = get_api_objects(url, port, api_key, "allsystems")
-    selected_hosts = [x for x in all_systems if x["resource_name"] in hosts]
-    ids: List[int] = [int(x["resource_id"]) for x in selected_hosts]
-    return ids
 
 
 def get_user_by_username(
@@ -309,9 +272,7 @@ def create_tms_request(
     port: int,
     api_key: str,
     request_name: str,
-    policy_name: str,
-    hosts: str,
-    patch_types: str,
+    description: str,
     requester_username: str,
 ) -> Dict[str, JSONValue]:
     """
@@ -343,7 +304,7 @@ def create_tms_request(
     requester = TMSRequester(id=requester_id, name=requester_username)
     data = TMSRequest(
         subject=request_name,
-        description=f"[AUTO-GENERATED] Ansible has initiated {patch_types} updates for the following servers : {hosts} {f'in accordance with the {{ {policy_name} }} policy' if policy_name else ''}",
+        description=description,
         resolution=TMSResolution(content="The update has completed successfully"),
         status=TMSStatus(name="Open"),
         requester=requester,
@@ -397,19 +358,17 @@ def find_request(
     fail_json: Callable,
     request_name: str,
     requests: List[dict],
-    hosts: List[str],
-    patch_types: List[str],
+    description: List[str],
 ) -> Optional[Dict[str, JSONValue]]:
     try:
-        request: bool = next(
+        request: Optional[Dict[str, JSONValue]] = next(
             (
                 request
                 for request in requests
                 if (
                     request["subject"].startswith(request_name)
                     and request["status"]["name"] == "Open"
-                    and all(s in request["short_description"] for s in hosts)
-                    and all(s in request["short_description"] for s in patch_types)
+                    and description in request["short_description"]
                 )
             ),
             None,
@@ -474,9 +433,7 @@ def run_module():
         service_desk_plus_url=dict(type="str", required=True),
         service_desk_plus_port=dict(type="int", required=True),
         name=dict(type="str", required=False, default="Request created by Ansible"),
-        deployment_policy_name=dict(type="str", required=False),
-        hosts=dict(type="list", required=True),
-        patch_types=dict(type="list", required=False),
+        description=dict(type="str", required=False),
         state=dict(type="str", choices=["present", "absent"], required=True),
         attachments=dict(
             type="list",
@@ -509,9 +466,7 @@ def run_module():
     base_url = base_url if "http" in base_url else f"https://{base_url}"
     port: int = module.params["service_desk_plus_port"]
     name: str = module.params["name"]
-    deployment_policy_name: str = module.params["deployment_policy_name"]
-    hosts: List[str] = module.params["hosts"]
-    patch_types: List[str] = module.params["patch_types"]
+    description: str = module.params["description"]
     state: str = module.params["state"]
     attachments: List[Dict[str, str]] = module.params["attachments"]
     requester_username: str = module.params["requester_username"]
@@ -532,8 +487,7 @@ def run_module():
             fail_json=module.fail_json,
             request_name=name,
             requests=requests,
-            hosts=hosts,
-            patch_types=patch_types,
+            description=description
         )
         if state == "present":
             if request:
@@ -547,9 +501,7 @@ def run_module():
                     port=port,
                     api_key=api_key,
                     request_name=name,
-                    policy_name=deployment_policy_name,
-                    hosts=hosts,
-                    patch_types=patch_types,
+                    description=description,
                     requester_username=requester_username,
                 )
                 result = check_api_resp(module, result, request_resp)
