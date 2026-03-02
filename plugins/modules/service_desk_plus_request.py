@@ -153,12 +153,11 @@ class TMSAttachment:
     file_name: str
     file_path: str
     file_type: Tuple[Optional[str], Optional[str]]
-    # attachments: list[Attachment] = field(default_factory=lambda: [("input_file", ("", None), "")])
 
     def __init__(self, file_name: str, file_path: str):
         self.file_name = file_name
         self.file_path = file_path
-        self.file_type = mimetypes.guess_file_type(self.file_path)
+        self.file_type = mimetypes.guess_type(self.file_path)
 
     def to_tuple(self):
         return (
@@ -428,7 +427,6 @@ def check_api_resp(
 
 
 def run_module():
-    # define available arguments/parameters a user can pass to the module
     module_args = dict(
         api_key=dict(type="str", required=True, no_log=True),
         service_desk_plus_url=dict(type="str", required=True),
