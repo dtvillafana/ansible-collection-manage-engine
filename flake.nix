@@ -2,7 +2,7 @@
   description = "python devshell";
 
   inputs = {
-    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.2511.0";
+    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.2311.0";
   };
 
   outputs =
@@ -12,8 +12,24 @@
     }:
     let
       system = "x86_64-linux";
-      pkgs = nixpkgs.legacyPackages.${system};
-      python3 = pkgs.python313;
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [
+          (final: prev: {
+            python39 = prev.python39.override {
+              packageOverrides = pyFinal: pyPrev:
+                builtins.mapAttrs
+                  (name: pkg:
+                    if builtins.isAttrs pkg && pkg ? overridePythonAttrs
+                    then pkg.overridePythonAttrs { doCheck = false; }
+                    else pkg
+                  )
+                  pyPrev;
+            };
+          })
+        ];
+      };
+      python3 = pkgs.python39;
       pythonWithPackages = python3.withPackages (
         ps: with ps; [
           black
