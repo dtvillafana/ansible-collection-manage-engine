@@ -113,12 +113,12 @@ api_response:
 import json
 import requests
 from ansible.module_utils.basic import AnsibleModule
-from typing import Callable
+from typing import Callable, Dict, List
 
 
 def get_resource_ids_for_patching(
-    url: str, port: int, api_key: str, hosts: list[str]
-) -> list[int]:
+    url: str, port: int, api_key: str, hosts: List[str]
+) -> List[int]:
     """
     get_resource_ids_for_patching gets the list of resource ids of hosts to update
 
@@ -133,7 +133,7 @@ def get_resource_ids_for_patching(
     """
     all_systems = get_api_objects(url, port, api_key, "allsystems")
     selected_hosts = [x for x in all_systems if x["resource_name"] in hosts]
-    ids: list[int] = [int(x["resource_id"]) for x in selected_hosts]
+    ids: List[int] = [int(x["resource_id"]) for x in selected_hosts]
     return ids
 
 
@@ -145,8 +145,8 @@ def patch_hosts(
     config_name: str,
     config_desc: str,
     policy_name: str,
-    hosts: list[str],
-    patch_types: list[str],
+    hosts: List[str],
+    patch_types: List[str],
 ) -> dict:
     """
     Performs the patching of the hosts using abstracted logic
@@ -160,7 +160,7 @@ def patch_hosts(
     Returns:
         the API response as a dictionary
     """
-    resource_ids: list[int] = get_resource_ids_for_patching(url, port, api_key, hosts)
+    resource_ids: List[int] = get_resource_ids_for_patching(url, port, api_key, hosts)
     all_patches: list = get_api_objects(url, port, api_key, "allpatches")
     selected_patches: list = [
         x
@@ -171,7 +171,7 @@ def patch_hosts(
         )
         and int(x["missing"]) > 0
     ]
-    patch_ids: list[int] = [x["patch_id"] for x in selected_patches]
+    patch_ids: List[int] = [x["patch_id"] for x in selected_patches]
     data: dict = {}
     try:
         policy_id = next(
@@ -219,7 +219,7 @@ def api_post(url: str, port: int, api_key: str, endpoint: str, data: dict) -> di
 
 def get_api_objects(
     url: str, port: int, api_key: str, object_name: str, filter: str = ""
-) -> list[dict]:
+) -> List[dict]:
     """
     get_api_objects makes a simple unfiltered call to the ManageEngine API
     v1.4 for the object name specified and returns the first 1000 objects.
@@ -245,8 +245,8 @@ def get_api_objects(
 def check_if_config_exists(
     fail_json: Callable,
     config_name: str,
-    configs: list[dict],
-    hosts: list[str],
+    configs: List[dict],
+    hosts: List[str],
 ) -> bool:
     try:
         exists: bool = any(
@@ -314,7 +314,7 @@ def run_module():
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
     try:
-        configs: list[dict] = get_api_objects(url, port, api_key, "viewconfig")
+        configs: List[dict] = get_api_objects(url, port, api_key, "viewconfig")
         config_exists: bool = check_if_config_exists(
             module.fail_json, name, configs, hosts
         )

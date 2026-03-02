@@ -136,14 +136,16 @@ api_response:
 import json
 import requests
 from ansible.module_utils.basic import AnsibleModule
-from typing import Callable, TypedDict, Literal, Optional
+from typing import Callable, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 from dataclasses import dataclass, asdict, field
 import mimetypes
 
-JSONValue = None | bool | int | float | str | list["JSONValue"] | dict[str, "JSONValue"]
+JSONValue = Union[
+    None, bool, int, float, str, List["JSONValue"], Dict[str, "JSONValue"]
+]
 
 
-Attachment = tuple[Literal["input_file"], tuple[str, BufferedReader | None], str]
+Attachment = Tuple[Literal["input_file"], Tuple[str, Optional[BufferedReader]], str]
 
 
 @dataclass
@@ -166,7 +168,7 @@ class TMSStatus:
 class TMSAttachment:
     file_name: str
     file_path: str
-    file_type: tuple[str | None, str | None]
+    file_type: Tuple[Optional[str], Optional[str]]
     # attachments: list[Attachment] = field(default_factory=lambda: [("input_file", ("", None), "")])
 
     def __init__(self, file_name: str, file_path: str):
@@ -183,17 +185,17 @@ class TMSAttachment:
 
 @dataclass
 class TMSRequest:
-    id: int | None = None
+    id: Optional[int] = None
     subject: str = ""
     description: str = ""
-    requester: TMSRequester | None = None
-    status: TMSStatus | None = None
-    resolution: TMSResolution | None = None
+    requester: Optional[TMSRequester] = None
+    status: Optional[TMSStatus] = None
+    resolution: Optional[TMSResolution] = None
 
 
 def get_resource_ids_for_patching(
-    url: str, port: int, api_key: str, hosts: list[str]
-) -> list[int]:
+    url: str, port: int, api_key: str, hosts: List[str]
+) -> List[int]:
     """
     get_resource_ids_for_patching gets the list of resource ids of hosts to update
 
@@ -208,13 +210,13 @@ def get_resource_ids_for_patching(
     """
     all_systems = get_api_objects(url, port, api_key, "allsystems")
     selected_hosts = [x for x in all_systems if x["resource_name"] in hosts]
-    ids: list[int] = [int(x["resource_id"]) for x in selected_hosts]
+    ids: List[int] = [int(x["resource_id"]) for x in selected_hosts]
     return ids
 
 
 def get_user_by_username(
     fail_json: Callable, api_key: str, url: str, port: int, username: str
-) -> dict[str, JSONValue] | None:
+) -> Optional[Dict[str, JSONValue]]:
     """
     retrieve user from TMS API by AD username
 
@@ -311,7 +313,7 @@ def create_tms_request(
     hosts: str,
     patch_types: str,
     requester_username: str,
-) -> dict[str, JSONValue]:
+) -> Dict[str, JSONValue]:
     """
     Create TMS ticket by TMS API for an automation job
 
@@ -361,7 +363,7 @@ def create_tms_request(
 
 def get_api_objects(
     url: str, port: int, api_key: str, object_name: str
-) -> list[dict[str, JSONValue]]:
+) -> List[Dict[str, JSONValue]]:
     """
     get_api_objects makes a simple unfiltered call to the ManageEngine API
     v3 for the object name specified and returns the first 1000 objects.
@@ -383,7 +385,7 @@ def get_api_objects(
     }
     response = requests.get(url, headers=headers, params=params)
     if response.status_code in [200, 201]:
-        objects: list[dict[str, JSONValue]] = json.loads(response.text)[object_name]
+        objects: List[Dict[str, JSONValue]] = json.loads(response.text)[object_name]
         return objects
     else:
         raise Exception(
@@ -394,10 +396,10 @@ def get_api_objects(
 def find_request(
     fail_json: Callable,
     request_name: str,
-    requests: list[dict],
-    hosts: list[str],
-    patch_types: list[str],
-) -> dict[str, JSONValue] | None:
+    requests: List[dict],
+    hosts: List[str],
+    patch_types: List[str],
+) -> Optional[Dict[str, JSONValue]]:
     try:
         request: bool = next(
             (
@@ -421,14 +423,14 @@ def find_request(
 
 def add_and_associate_attachments(
     request_id: str,
-    attachments: list[dict[str, str]],
+    attachments: List[Dict[str, str]],
     fail_json: Callable,
     base_url: str,
     port: int,
     api_key: str,
 ) -> JSONValue:
 
-    tms_attachments: list[Attachment] = [
+    tms_attachments: List[Attachment] = [
         TMSAttachment(file_path=x["file_path"], file_name=x["file_name"]).to_tuple()
         for x in attachments
     ]
@@ -449,8 +451,8 @@ def add_and_associate_attachments(
 
 
 def check_api_resp(
-    module: AnsibleModule, result: dict[str, JSONValue], response
-) -> dict[str, JSONValue]:
+    module: AnsibleModule, result: Dict[str, JSONValue], response
+) -> Dict[str, JSONValue]:
     result["msg"].append(response)
     if response.get("status", "") == "error":
         result["changed"] = False
@@ -508,10 +510,10 @@ def run_module():
     port: int = module.params["service_desk_plus_port"]
     name: str = module.params["name"]
     deployment_policy_name: str = module.params["deployment_policy_name"]
-    hosts: list[str] = module.params["hosts"]
-    patch_types: list[str] = module.params["patch_types"]
+    hosts: List[str] = module.params["hosts"]
+    patch_types: List[str] = module.params["patch_types"]
     state: str = module.params["state"]
-    attachments: list[dict[str, str]] = module.params["attachments"]
+    attachments: List[Dict[str, str]] = module.params["attachments"]
     requester_username: str = module.params["requester_username"]
 
     # if the user is working with this module in only check mode we do not
@@ -523,10 +525,10 @@ def run_module():
     # manipulate or modify the state as needed (this is going to be the
     # part where your module will do what it needs to do)
     try:
-        requests: list[dict[str, JSONValue]] = get_api_objects(
+        requests: List[Dict[str, JSONValue]] = get_api_objects(
             base_url, port, api_key, "requests"
         )
-        request: dict[str, JSONValue] | None = find_request(
+        request: Optional[Dict[str, JSONValue]] = find_request(
             fail_json=module.fail_json,
             request_name=name,
             requests=requests,
@@ -539,7 +541,7 @@ def run_module():
                 result["msg"].append("request already exists")
                 result["failed"] = False
             else:
-                request_resp: dict[str, JSONValue] = create_tms_request(
+                request_resp: Dict[str, JSONValue] = create_tms_request(
                     fail_json=module.fail_json,
                     url=base_url,
                     port=port,
