@@ -83,7 +83,7 @@ EXAMPLES = r"""
 - name: ensure state present of patch install
   service_desk_plus_request:
     api_key: 7A69CA52-EASD-4162-A263-CC4DCC35736B
-    service_desk_plus_url: tms.capcu.org
+    service_desk_plus_url: servicedeskplus.domain.org
     service_desk_plus_port: 8080
     name: Service Desk Plus request ticket
     description: Update Servers - CCUTMSTEST CCUWEBTEST CCUAPPS2 - Cumulative Update for Windows Server - Servicing Stack Update for Windows Server - Cumulative Update for SQL Server
@@ -99,22 +99,237 @@ EXAMPLES = r"""
 
 RETURN = r"""
 api_response:
-    description: The returned data from the api call that creates the patch configuration
+    description: The returned data from the api call with the ticket creation JSON
     returned: always
     type: dict
     sample: {
                 "changed": true,
-                "failed": false,
-                "message": {
-                    "message_response": {
-                        "installpatch": {}
+                "msg": [
+                  {
+                    "ola_due_by_time": null,
+                    "resolution": {
+                      "submitted_on": {
+                        "display_value": "Mar 2, 2026 06:43 PM",
+                        "value": "1772498608135"
+                      },
+                      "submitted_by": {
+                        "email_id": "david.villafana@testing.org",
+                        "phone": "701-123-1234",
+                        "name": "Villafaña, David",
+                        "mobile": null,
+                        "profile_pic": {
+                          "content-url": "/images/default-profile-pic2.svg"
+                        },
+                        "is_vipuser": false,
+                        "id": "113705",
+                        "department": {
+                          "site": {
+                            "name": "Main",
+                            "id": "15604"
+                          },
+                          "deleted": false,
+                          "name": "IT",
+                          "id": "21008"
+                        }
+                      },
+                      "resolution_attachments": [],
+                      "content": "The update has completed successfully"
                     },
-                    "message_type": "installpatch",
-                    "message_version": "1.3",
-                    "status": "success"
-                }
-            }
-
+                    "onhold_time": null,
+                    "is_trashed": false,
+                    "fr_sla_violated_group": null,
+                    "id": "60997",
+                    "assigned_time": null,
+                    "requester": {
+                      "email_id": null,
+                      "phone": null,
+                      "name": "automation-service-acct",
+                      "mobile": null,
+                      "profile_pic": {
+                        "content-url": "/images/default-profile-pic2.svg"
+                      },
+                      "is_vipuser": false,
+                      "id": "12341234",
+                      "department": {
+                        "site": {
+                          "name": "automation",
+                          "id": "19504"
+                        },
+                        "deleted": false,
+                        "name": "IT department",
+                        "id": "255555"
+                      }
+                    },
+                    "cancel_requested_by": null,
+                    "sla_violated_technician": null,
+                    "has_resolution_attachments": false,
+                    "sla": {
+                      "name": "Normal SLA",
+                      "id": "2"
+                    },
+                    "priority": {
+                      "color": "#003399",
+                      "name": "Normal",
+                      "id": "2"
+                    },
+                    "sla_violated_group": null,
+                    "tags": [],
+                    "has_notes": false,
+                    "is_current_ola_violated": null,
+                    "image_token": "513qeioqewiouqwiouqewioqewiuo123123oiuqwioeuqoiwueioqwue123124a8192738ac9ef874688fe8afe39d4da2e49bca5bae",
+                    "udf_fields": {
+                      "udf_sline_4208": "Please provide the answer(s) to help us resolve your issue.",
+                      "udf_sline_3604": null,
+                      "udf_date_3610": null,
+                      "udf_sline_3904": null,
+                      "udf_pick_3606": null,
+                      "udf_mline_4211": null
+                    },
+                    "status": {
+                      "color": "#0066ff",
+                      "name": "Open",
+                      "id": "1"
+                    },
+                    "template": {
+                      "is_service_template": false,
+                      "service_category": {
+                        "id": "3601"
+                      },
+                      "name": "Default Request",
+                      "id": "1"
+                    },
+                    "primary_asset": null,
+                    "cancel_requested_time": null,
+                    "chat_type": 0,
+                    "is_service_request": false,
+                    "cancel_requested": false,
+                    "has_request_initiated_change": false,
+                    "has_attachments": false,
+                    "has_linked_requests": false,
+                    "has_request_caused_by_change": false,
+                    "site": {
+                      "name": "automation",
+                      "id": "19504"
+                    },
+                    "subject": "Employee Security Tracking Ticket",
+                    "linked_to_request": null,
+                    "mode": null,
+                    "is_read": false,
+                    "lifecycle": null,
+                    "reason_for_cancel": null,
+                    "assets": [],
+                    "email_to": [],
+                    "created_time": {
+                      "display_value": "Mar 2, 2026 06:43 PM",
+                      "value": "1772498608135"
+                    },
+                    "approval_status": null,
+                    "service_category": {
+                      "name": "Default Request",
+                      "id": "3601",
+                      "icon_name": {
+                        "content-url": "/images/no-image-icon.svg"
+                      }
+                    },
+                    "created_by": {
+                      "email_id": "david.villafana@test.org",
+                      "phone": "701-123-1234",
+                      "name": "Villafaña, David",
+                      "mobile": null,
+                      "profile_pic": {
+                        "content-url": "/images/default-profile-pic2.svg"
+                      },
+                      "is_vipuser": false,
+                      "id": "113705",
+                      "department": {
+                        "site": {
+                          "name": "Main",
+                          "id": "15604"
+                        },
+                        "deleted": false,
+                        "name": "IT",
+                        "id": "255555"
+                      }
+                    },
+                    "scheduled_end_time": null,
+                    "first_response_due_by_time": null,
+                    "last_updated_time": null,
+                    "subcategory": null,
+                    "email_cc": [],
+                    "scheduled_start_time": null,
+                    "email_ids_to_notify": [],
+                    "notification_status": null,
+                    "description": "the big testing desc 2!",
+                    "has_dependency": false,
+                    "has_conversation": false,
+                    "fr_sla_violated_technician": null,
+                    "callback_url": null,
+                    "is_shared": false,
+                    "request_template_task_ids": [],
+                    "department": {
+                      "site": {
+                        "name": "automation",
+                        "id": "19504"
+                      },
+                      "deleted": false,
+                      "name": "IT department",
+                      "id": "25555"
+                    },
+                    "is_reopened": false,
+                    "has_draft": false,
+                    "is_overdue": false,
+                    "technician": null,
+                    "due_by_time": {
+                      "display_value": "Mar 11, 2026 05:00 PM",
+                      "value": "1773266400135"
+                    },
+                    "is_first_response_overdue": false,
+                    "cancel_requested_is_pending": false,
+                    "recommend_template": null,
+                    "unreplied_count": null,
+                    "category": {
+                      "name": "the stuff",
+                      "id": "30123"
+                    },
+                    "maintenance": null
+                  },
+                  {
+                    "module": "request",
+                    "description": null,
+                    "attached_by": {
+                      "email_id": "david.villafana@test.org",
+                      "phone": "701-123-1234",
+                      "name": "Villafaña, David",
+                      "mobile": null,
+                      "profile_pic": null,
+                      "is_vipuser": false,
+                      "id": "123123",
+                      "department": {
+                        "site": {
+                          "name": "Main",
+                          "id": "15604"
+                        },
+                        "deleted": false,
+                        "name": "IT",
+                        "id": "25555"
+                      }
+                    },
+                    "content_type": "application/json",
+                    "size": {
+                      "display_value": "2.35KB",
+                      "value": 2410
+                    },
+                    "name": "request.json",
+                    "attached_on": {
+                      "display_value": "Mar 2, 2026 06:43 PM",
+                      "value": "1772498608845"
+                    },
+                    "content_url": "/api/v3/requests/12332/attachments/123123/_download",
+                    "id": "171238"
+                  }
+                ],
+                "failed": false
+              }
 """
 
 import json
@@ -394,35 +609,52 @@ def add_and_associate_attachments(
         for x in attachments
     ]
 
+    ret: List[JSONValue] = []
     headers = {"authtoken": api_key}
     url: str = f"{base_url}:{port}/api/v3/requests/{request_id}/upload"
-    response = requests.put(
-        url=url,
-        headers=headers,
-        files=tms_attachments,
-        verify=True,
-    )
-    if response.status_code in [200, 201]:
-        ret = json.loads(response.text).get("attachment", None)
-        return ret
-    else:
-        raise Exception(f"Error: {response.status_code}, {response.text}, {url}")
+    for tms_attachment in tms_attachments:
+        response = requests.put(
+            url=url,
+            headers=headers,
+            files=[tms_attachment],
+            verify=True,
+        )
+        if response.status_code in [200, 201]:
+            ret.append(json.loads(response.text).get("attachment", None))
+        else:
+            raise Exception(f"Error: {response.status_code}, {response.text}, {url}")
+
+    return ret
 
 
 def check_api_resp(
-    module: AnsibleModule, result: Dict[str, JSONValue], response
+    module: AnsibleModule, result: Dict[str, JSONValue], response: Union[Dict[str, JSONValue], List[Dict[str, JSONValue]]]
 ) -> Dict[str, JSONValue]:
-    result["msg"].append(response)
-    if response.get("status", "") == "error":
-        result["changed"] = False
-        if response["error_code"] == "3010":
-            result["failed"] = False
-        else:
-            result["failed"] = True
-            module.fail_json(**result)
+    if isinstance(response, List):
+        for resp in response:
+            result["msg"].append(resp)
+            if resp.get("status", "") == "error":
+                result["changed"] = False
+                if resp["error_code"] == "3010":
+                    result["failed"] = False
+                else:
+                    result["failed"] = True
+                    module.fail_json(**result)
+            else:
+                result["changed"] = True
+                result["failed"] = False
     else:
-        result["changed"] = True
-        result["failed"] = False
+        result["msg"].append(response)
+        if response.get("status", "") == "error":
+            result["changed"] = False
+            if response["error_code"] == "3010":
+                result["failed"] = False
+            else:
+                result["failed"] = True
+                module.fail_json(**result)
+        else:
+            result["changed"] = True
+            result["failed"] = False
     return result
 
 
